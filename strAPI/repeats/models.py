@@ -187,7 +187,6 @@ class AlleleSequence(SQLModel, table=True):
     population: str = Field(nullable=False)
     n_effective: int = Field(nullable=False)
     frequency: float = Field(nullable=False)
-    het: Optional[float] = Field(nullable=True)
     num_called: Optional[int] = Field(nullable=True) 
     sequence: str = Field(nullable=False) 
 

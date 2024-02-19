@@ -88,7 +88,6 @@ class AlleleSequence(BaseModel):
     population: str
     n_effective: int
     frequency: float
-    het: float
     num_called: int
     repeat_id: int
     sequence: str
