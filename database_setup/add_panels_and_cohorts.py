@@ -8,14 +8,19 @@ from gtf_to_sql import connection_setup
 
 def make_db_trpanel(session, trpanel_info):
 
-    # initialize instance of TR Panel object
-    db_panel = TRPanel(
-        name = trpanel_info['name'],
-        method = trpanel_info['method']
-    )
+    db_panel = session.query(TRPanel).filter(
+        TRPanel.name == trpanel_info['name'] and TRPanel.method == trpanel_info['method'] 
+        ).first()
+
+    if not db_panel:        
+        # initialize instance of TR Panel object
+        db_panel = TRPanel(
+            name = trpanel_info['name'],
+            method = trpanel_info['method']
+        )
 
     # get corresponding genome and assign to panel
-    genome = session.query(Genome).filter(Genome.name == trpanel_info['genome']).one()
+    genome = session.query(Genome).filter(Genome.name == trpanel_info['genome']).first()
     genome.trpanels.append(db_panel)
     db_panel.genome_id = genome.id
 
@@ -23,13 +28,18 @@ def make_db_trpanel(session, trpanel_info):
 
 def make_db_cohort(session, cohort_info):
 
-    # initialize instance of TR Panel object
-    db_cohort = Cohort(
-        name = cohort_info['name'],  
-    )
+    db_cohort = session.query(Cohort).filter(
+        Cohort.name == cohort_info['name']
+        ).first()
+
+    if not db_cohort: 
+        # initialize instance of TR Panel object
+        db_cohort = Cohort(
+            name = cohort_info['name'],  
+        )
 
     # get corresponding genome and assign to panel
-    trpanel = session.query(TRPanel).filter(TRPanel.name == cohort_info['panel']).one()
+    trpanel = session.query(TRPanel).filter(TRPanel.name == cohort_info['panel']).first()
     #print(trpanel)
     trpanel.cohorts.append(db_cohort)
     db_cohort.trpanel_id = trpanel.id
@@ -48,14 +58,15 @@ def cla_parser():
 def main():
     args = cla_parser()
     db_path = args.database
+    db_path = db_path.replace("postgres://", "postgresql+psycopg2://") 
     
     engine, session = connection_setup(db_path)
-    list_of_panels = [{'name': 'gangstr_hg38_ver16', 'method': 'GangSTR', 'genome': 'hg38'},
+    list_of_panels = [ {'name': 'gangstr_hg38_ver16', 'method': 'GangSTR', 'genome': 'hg38'},
                        {'name': 'hipstr_hg19', 'method': 'HipSTR', 'genome': 'hg19'},
-                       {'name': 'consensustr_hg38',  'method':'HipSTR-GangSTR-adVNTR-ExpansionHunter', 'genome': 'hg38'},
+                       {'name': 'ensembleTR',  'method': 'EnsembleTR', 'genome': 'hg38'},
                        {'name': 'gangstr_mm10', 'method': 'GangSTR', 'genome': 'mm10'},
                        {'name': 'hipstr_rn7', 'method': 'HipSTR', 'genome': 'rn7'},
-                       {'name': 'gangstr_crc_hg38', 'method': 'GangSTR', 'genome': 'hg38'}
+                       {'name': 'gangstr_crc_hg38', 'method': 'GangSTR', 'genome': 'hg38'},
 ]
     
     for t in list_of_panels:
@@ -66,10 +77,11 @@ def main():
     list_of_cohorts = [{'name': 'Sinergia-CRC', 'panel': 'gangstr_crc_hg38'}, 
                        {'name': 'GTEx', 'panel': 'gangstr_hg38_ver16'},
                        {'name': '1000G-150', 'panel': 'hipstr_hg19'},
-                       {'name': 'ConsensusTR', 'panel': 'consensustr_hg38'},
+                       {'name': '1000G', 'panel': 'ensembleTR'},
                        {'name': 'GTEx', 'panel': 'hipstr_hg19'},
                        {'name': 'BXD', 'panel': 'gangstr_mm10'},
-                       {'name': 'HS', 'panel': 'hipstr_rn7'}]
+                       {'name': 'HS', 'panel': 'hipstr_rn7'},
+    ]
 
     for c in list_of_cohorts:
         c_obj = make_db_cohort(session, c)
