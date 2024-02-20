@@ -183,7 +183,23 @@ class AlleleFrequency(SQLModel, table=True):
     # One to many, Repeat ->  AlleleFrequency
     repeat_id: int = Field(foreign_key = "repeats.id")
     repeat: "Repeat" = Relationship(back_populates="allfreqs")
-     
+
+
+class AlleleSequence(SQLModel, table=True):
+    __tablename__ = "allele_sequences"
+
+    id: int = Field(primary_key=True) 
+
+    population: str = Field(nullable=False)
+    n_effective: int = Field(nullable=False)
+    frequency: float = Field(nullable=False)
+    num_called: Optional[int] = Field(nullable=True) 
+    sequence: str = Field(nullable=False) 
+
+    # One to many, Repeat ->  AlleleSequence
+    repeat_id: int = Field(foreign_key = "repeats.id")
+    repeat: "Repeat" = Relationship(back_populates="allseq")   
+
 
 class Repeat(SQLModel, table=True):
     __tablename__ = "repeats"
@@ -221,7 +237,12 @@ class Repeat(SQLModel, table=True):
     allfreqs: Optional[List["AlleleFrequency"]] = Relationship(
         back_populates="repeat"
     )
-    
+ 
+    # Add relationship directive to Repeat class for one to many Repeat - AlleleSequence
+    allseq: Optional[List["AlleleSequence"]] = Relationship(
+        back_populates="repeat"
+    )
+   
     # many to many Repeats <-> Transcripts
     transcripts: List["Transcript"] = Relationship(back_populates="repeats", link_model = RepeatTranscriptsLink)
     
