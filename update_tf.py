@@ -9,7 +9,8 @@ import math
 import os
 from tqdm import tqdm
 
-
+#chrom	start	end	acount-AFR	acount-AMR	acount-EAS	acount-EUR	acount-SAS
+#chr10	89246	89285	CACATACACACACACACACACACACACACACAC:2,CACATACACACACACACACACACACACACACACAC:261,CACATACACACACACACACACACACACACACA
 def round_sf(number):
     if number == 0:
         return 0.0
@@ -69,54 +70,48 @@ def process_file(filepath, session, error_log_file, skipped_lines_file):
 
             except MultipleResultsFound as ex:
                 error_message = f"Multiple results found for chr: {columns[0]}:{columns[1]}-{columns[2]}"
-                #print(error_message)
                 error_log_file.write(error_message + '\n')  # Write error message to log file
                 continue
 
             except NoResultFound as ex:
                 error_message = f"No matching record found for chr: {columns[0]}:{columns[1]}-{columns[2]}"
-                #print(error_message)
                 error_log_file.write(error_message + '\n')  # Write error message to log file
                 continue
 
+##chrom  start   end     acount-AFR      acount-AMR      acount-EAS      acount-EUR      acount-SAS
+#chr10  89246   89285   CACATACACACACACACACACACACACACACAC:2,CACATACACACACACACACACACACACACACACAC:261,
+
             for pop in ["AFR", "AMR", "EAS", "EUR", "SAS"]:
                 popdata = columns[pop_indices[pop]]
-                popdata_items = popdata.split(",")
-                total = 0
+                if popdata != ".":  # Check if there is any data for this population
+                    popdata_items = popdata.split(",")
+                    #CACATACACACACACACACACACACACACACAC:2
 
-
-                ###test###
-                #print("popdata:", popdata) 
-                #print("popdata_items:", popdata_items)  
-                #print("Number of items in popdata_items:", len(popdata_items))  
-
-
-
-                if len(popdata_items) >= 2:
-                    total = np.sum([int(item.split(":")[1]) for item in popdata.split(",")])
-
-                if len(popdata_items) < 2:
-                    continue
-
-                alleles = popdata.split(",")
-                for a in alleles:
-                    allele_items = a.split(":")
-                    if len(allele_items) >= 2:
-                        aseq = allele_items[0]
-                        acount = int(allele_items[1])
-                        freq = round_sf(acount / total)
-                        db_seq = AlleleSequence(
-                            repeat_id=db_repeat.id,
-                            population=pop,
-                            n_effective=db_repeat.n_effective,
-                            frequency=freq,
-                            num_called=acount,
-                            sequence=aseq
-                        )
-                        db_repeat.allseq.append(db_seq)
+        # If there's only one sequence or more, calculate total counts accordingly
+                    if len(popdata_items) == 1 and ':' in popdata_items[0]:
+                        total = int(popdata_items[0].split(":")[1])
                     else:
-                        skipped_lines_file.write(f"Skipped line else condition of allele loop {line_number}: {line}\n")
-                        continue
+                        total = sum(int(item.split(":")[1]) for item in popdata_items if ':' in item)
+
+                    for a in popdata_items:
+                        allele_items = a.split(":")
+                        if len(allele_items) == 2:
+                            aseq, acount = allele_items
+                            acount = int(acount)
+                            freq = round_sf(acount / total) if total > 0 else 0
+                            db_seq = AlleleSequence(
+                                repeat_id=db_repeat.id,
+                                population=pop,
+                                n_effective=db_repeat.n_effective,
+                                frequency=freq,
+                                num_called=acount,
+                                sequence=aseq
+                            )
+                            db_repeat.allseq.append(db_seq)
+                        else:
+                        # Log or handle the case where an allele doesn't have the expected format
+                            skipped_lines_file.write(f"Skipped or malformed allele entry at line {line_number}: {line}\n")
+ 
 
         # Close the tqdm progress bar
         progress_bar.close()
@@ -125,9 +120,9 @@ def process_file(filepath, session, error_log_file, skipped_lines_file):
 
 def main():
     default_path = "postgresql://webstr:webstr@localhost:5432/strdb"
-    default_error_log = "error_chr4.log"
-    default_skipped_lines_file = "skipped_lines_chr4.txt"
-    default_file ="/gymreklab-tscc/creeve/chr/chr4.tab"
+    default_error_log = "error_chr1.log"
+    default_skipped_lines_file = "skipped_lines_chr1.txt"
+    default_file ="/gymreklab-tscc/creeve/chr/chr1.tab"
     parser = argparse.ArgumentParser(description="Insert data into PostgreSQL database")
     parser.add_argument("--db_path", type=str, default=default_path, help="PostgreSQL connection URL")
     parser.add_argument("--file", type=str, default=default_file,help="File to process")
