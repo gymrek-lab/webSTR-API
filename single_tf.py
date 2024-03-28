@@ -8,8 +8,9 @@ from strAPI.repeats.models import Repeat, Gene, TRPanel, AlleleSequence
 import math
 import os
 from tqdm import tqdm
-import glob
 
+#chrom	start	end	acount-AFR	acount-AMR	acount-EAS	acount-EUR	acount-SAS
+#chr10	89246	89285	CACATACACACACACACACACACACACACACAC:2,CACATACACACACACACACACACACACACACACAC:261,CACATACACACACACACACACACACACACACA
 def round_sf(number):
     if number == 0:
         return 0.0
@@ -27,11 +28,6 @@ def connection_setup(db_path):
 
 
 def process_file(filepath, session, error_log_file, skipped_lines_file):
-
-
-    print(f"Currently processing: {filepath}")
-
-
     with open(filepath, "r") as file:
         next(file)
 
@@ -124,23 +120,22 @@ def process_file(filepath, session, error_log_file, skipped_lines_file):
 
 def main():
     default_path = "postgresql://webstr:webstr@localhost:5432/strdb"
+    default_error_log = "error_chr21.log"
+    default_skipped_lines_file = "skipped_lines_chr21.txt"
+    default_file ="/gymreklab-tscc/creeve/chr/chr21.tab"
     parser = argparse.ArgumentParser(description="Insert data into PostgreSQL database")
     parser.add_argument("--db_path", type=str, default=default_path, help="PostgreSQL connection URL")
-    parser.add_argument("--files_pattern", type=str, default="/gymreklab-tscc/creeve/chr/chr*.tab", help="Pattern to match files for processing")
-    parser.add_argument("--error_log_prefix", type=str, default="error_", help="Prefix for error log files")
-    parser.add_argument("--skipped_lines_prefix", type=str, default="skipped_lines_", help="Prefix for skipped lines files")
-
+    parser.add_argument("--file", type=str, default=default_file,help="File to process")
+    parser.add_argument("--error_log", type=str, default=default_error_log, help="Path to error log file")
+    parser.add_argument("--skipped_lines_file", type=str, default=default_skipped_lines_file, help="Path to skipped lines file")
+    
     args = parser.parse_args()
     engine, session = connection_setup(args.db_path)
 
-    files = sorted(glob.glob(args.files_pattern), key=lambda x: int(x.split('chr')[-1].split('.')[0]))
-    for filepath in files:
-        filename = filepath.split('chr')[-1].split('.')[0]
-        error_log_filename = f"{args.error_log_prefix}{filename}.log"
-        skipped_lines_filename = f"{args.skipped_lines_prefix}{filename}.txt"                                     
-        with open(error_log_filename, 'w') as error_log, open(skipped_lines_filename, 'w') as skipped_lines:
-            process_file(filepath, session, error_log, skipped_lines)
-    
+    with open(args.error_log, 'w') as error_log_file, \
+         open(args.skipped_lines_file, 'w') as skipped_lines_file:  
+        process_file(args.file, session, error_log_file, skipped_lines_file)  
+
     session.commit()
     session.close()
     engine.dispose()
@@ -148,3 +143,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
