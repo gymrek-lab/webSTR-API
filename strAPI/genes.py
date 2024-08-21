@@ -14,7 +14,7 @@ def get_exons_by_transcript(db, cds_only, transcript_obj):
     elif transcript_obj.gene.strand == "-":
         return list(sorted(exons, key=lambda x : x.start, reverse=True))
 
-def get_gene_info(db, gene_names, ensembl_ids, reqion_query):
+def get_gene_info(db, gene_names, ensembl_ids, region_query):
     genes = []
     if gene_names:
         genes = db.query(Gene).filter(Gene.name.in_(gene_names)).all()
@@ -22,8 +22,8 @@ def get_gene_info(db, gene_names, ensembl_ids, reqion_query):
         genes =  db.query(Gene).filter(Gene.ensembl_id.in_(ensembl_ids)).all()  
     # Example chr1:182393-1014541
   
-    elif reqion_query: 
-        region_split = reqion_query.split(':')
+    elif region_query: 
+        region_split = region_query.split(':')
         chrom = 'chr' + region_split[0]
         coord_split = region_split[1].split('-')
         start = int(coord_split[0])
