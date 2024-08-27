@@ -1,6 +1,6 @@
 from . repeats.models import Gene, Transcript
 
-GENEBUFFER = 0.1
+#GENEBUFFER = 0.1
 
 def get_exons_by_transcript(db, cds_only, transcript_obj):
     exons = []
@@ -28,28 +28,48 @@ def get_gene_info(db, gene_names, ensembl_ids, region_query):
         coord_split = region_split[1].split('-')
         start = int(coord_split[0])
         end = int(coord_split[1])
-        buf = int((end-start)*(GENEBUFFER))
-        start = start-buf
-        end = end+buf
+        #buf = int((end-start))
+        #start = start-buf
+        #end = end+buf
    
-        genes = db.query(Gene).where(Gene.chr == chrom,Gene.start >= start,Gene.end <= end).all()
+        genes = db.query(Gene).where(
+            Gene.chr == chrom,
+            Gene.end >= start,  # include genes that overlap @ start
+            Gene.start <= end  # include genes that overlap @ end
+        ).all()
     
     return genes
 
 def get_genes_with_exons(db, genes):
+
     genes_exons = []
-    # TODO: change to for each transcript in transcripts...., right now only returns the first
     for gene in iter(genes):
-        transcript = db.query(Transcript).filter_by(gene_id=gene.id).first()
-        exons_obj = get_exons_by_transcript(db, True, transcript)
-        exons = []
-        for exon in iter(exons_obj):
-            exons.append({
-                "ensembl_exon": exon.ensembl_exon,
-                "start":  exon.start,
-                "end":  exon.end,
-                "cds": exon.cds
-            })
+        print(f"Processing gene: {gene.name}")
+        transcripts = db.query(Transcript).filter_by(gene_id=gene.id).all()
+        print(f"Transcripts found: {len(transcripts)}")
+
+        all_exons = []
+        for transcript in transcripts:
+            print(f"Processing transcript: {transcript.ensembl_transcript}")
+            exons_obj = get_exons_by_transcript(db, False, transcript)
+            print(f"Exons found: {len(exons_obj)}")
+
+
+            exons = []
+            for exon in iter(exons_obj):
+            
+                print(f"Exon: {exon.ensembl_exon}")
+
+
+                exons.append({
+                    "ensembl_exon": exon.ensembl_exon,
+                    "start":  exon.start,
+                    "end":  exon.end,
+                    "cds": exon.cds
+                })
+            all_exons.extend(exons)
+
+   
     
         genes_exons.append({
             "ensembl_id": gene.ensembl_id,
@@ -59,7 +79,7 @@ def get_genes_with_exons(db, genes):
             "strand": gene.strand,
             "name": gene.name,
             "description": gene.description,
-            "exons": exons
+            "exons": all_exons
         })
         
-        return genes_exons         
+    return genes_exons         

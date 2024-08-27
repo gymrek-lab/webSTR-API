@@ -149,13 +149,13 @@ def show_genes(db: Session = Depends(get_db)):
     - Add features flag and return corresponding transcripts and exons
 """ 
 @app.get("/gene/", response_model=List[schemas.Gene], tags=["Genes"])
-def show_genes(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), region_query: str = Query(None)):
-    return gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
+def show_genes(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), reqion_query: str = Query(None)):
+    return gn.get_gene_info(db, gene_names, ensembl_ids, reqion_query)
     
 
 @app.get("/genefeatures/", response_model=List[schemas.GeneInfo], tags=["Genes"])
-def show_gene_info(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), region_query: str = Query(None)):
-        genes = gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
+def show_gene_info(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), reqion_query: str = Query(None)):
+        genes = gn.get_gene_info(db, gene_names, ensembl_ids, reqion_query)
         return gn.get_genes_with_exons(db, genes)
 
 
