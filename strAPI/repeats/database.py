@@ -12,7 +12,8 @@ from alembic.migration import MigrationContext
 DATABASE_URL = os.environ['DATABASE_URL']
 
 # Convert "postgres://<db_address>"  --> "postgresql+psycopg2://<db_address>" needed for SQLAlchemy
-final_db_url = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://")  
+final_db_url = DATABASE_URL
+
 
 """ 
 WARNING: Alembic functionality was teste but not used by default. Treat it as a POC for future versions.
