@@ -24,7 +24,9 @@ from fastapi.responses import StreamingResponse
 
 import sqlalchemy
 from sqlmodel import Session, select 
-from sqlalchemy import nullslast
+#from sqlalchemy import nullslast
+from sqlalchemy import case
+
 
 from .repeats import models, schemas
 from .repeats.database import get_db
@@ -329,13 +331,20 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
         genes = gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
         gene_obj_ids = [gene.id for gene in genes]
         
-        statement = select(models.Repeat, models.Gene, models.GenesRepeatsLink, models.CRCVariation     #SELECT genes, repeats, genes_repeats FROM ((genes_repeats
-            ).join(models.Gene).where(models.Gene.id == models.GenesRepeatsLink.gene_id  #INNER JOIN genes ON genes.id = genes_repeats.gene_id)
-            ).join(models.Repeat).where(models.Repeat.id == models.GenesRepeatsLink.repeat_id #INNER JOIN repeats on repeats.id = genes_repeats.repeat_id)
+    # When there is no region_query
+        statement = select(models.Repeat, models.Gene, models.GenesRepeatsLink, models.CRCVariation
+            ).join(models.Gene).where(models.Gene.id == models.GenesRepeatsLink.gene_id
+            ).join(models.Repeat).where(models.Repeat.id == models.GenesRepeatsLink.repeat_id
             ).filter(models.Gene.id.in_(gene_obj_ids)
-            ).filter(models.Repeat.l_effective <= 6 
-            ).join(models.CRCVariation, isouter=True 
-            ).order_by(nullslast(models.CRCVariation.frac_variable.desc())).order_by(models.CRCVariation.total_calls)
+            ).filter(models.Repeat.l_effective <= 6
+            ).join(models.CRCVariation, isouter=True
+            ).order_by(
+                case((models.CRCVariation.frac_variable.is_(None), 1), else_=0),
+                models.CRCVariation.frac_variable.desc(),
+                models.CRCVariation.total_calls
+            )
+
+
     
         repeats = db.exec(statement)
     else:
@@ -348,12 +357,17 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
         #start = start-buf
         #end = end+buf
        
-        statement = select(models.Repeat, models.GenesRepeatsLink, models.CRCVariation    
+        # When there is a region_query
+        statement = select(models.Repeat, models.GenesRepeatsLink, models.CRCVariation
             ).select_from(models.Repeat
             ).filter(models.Repeat.chr == chrom, models.Repeat.start >= start, models.Repeat.end <= end, models.Repeat.l_effective <= 6
             ).join(models.GenesRepeatsLink, isouter=True
             ).join(models.CRCVariation, isouter=True
-            ).order_by(nullslast(models.CRCVariation.frac_variable.desc())).order_by(models.CRCVariation.total_calls)
+            ).order_by(
+                case((models.CRCVariation.frac_variable.is_(None), 1), else_=0),
+                models.CRCVariation.frac_variable.desc(),
+                models.CRCVariation.total_calls
+    )
     
         
         repeats = db.exec(statement)
@@ -464,3 +478,8 @@ def get_crc_expr_repeatlen_corr(db: Session = Depends(get_db), limit = 7000):
     ).all()
 
     return [{**c.gene.__dict__, **c.repeat.__dict__, **c.__dict__} for c in correlations]
+
+@app.get("/test")
+def test_route():
+    return {"message": "Server is working"}
+
