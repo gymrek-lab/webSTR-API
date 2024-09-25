@@ -24,15 +24,11 @@ from fastapi.responses import StreamingResponse
 
 import sqlalchemy
 from sqlmodel import Session, select 
-#from sqlalchemy import nullslast
 from sqlalchemy import case
 
 
 from .repeats import models, schemas
 from .repeats.database import get_db
-
-# this is not needed if using alembic
-#models.Base.metadata.create_all(bind=engine)
 
 description = """
 WebSTR-API: Database of Human genome-wide variation in Short Tandem Repeats (STRs) 
@@ -83,7 +79,6 @@ def add_examples(openapi_schema: dict, docs_dir):
             if len(parts) >= 2:
                 route = '/' + '/'.join(parts[:-1])
                 method = parts[-1].split('.')[0]
-                print(f'[{path_key}][{route}][{method}][{code_key}]')
 
                 if route in openapi_schema[path_key]:
                     if code_key not in openapi_schema[path_key][route][method]:
@@ -174,8 +169,8 @@ Retrieve allele frequencies for the given repeat id
 @app.get("/allfreqs/", response_model=List[schemas.AlleleFrequency], tags=["Repeats"])
 def show_allele_freqs(repeat_id: int, db: Session = Depends(get_db)):
     allfreqs = db.query(models.AlleleFrequency).filter(models.AlleleFrequency.repeat_id == repeat_id).all()
-    #if allfreqs == []:
-    #    return []
+    if allfreqs == []:
+       return []
     return allfreqs
 
 @app.get("/allseq/", response_model=List[schemas.AlleleSequence], tags=["Repeats"])
@@ -274,7 +269,6 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
                             strand=None,
                             name=None,
                             description=None)
-            print(len(r))
             if len(r) < 4:
                 crcvar_info = r[2]
             elif len(r) == 4:
@@ -288,8 +282,7 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
             tr_panel_name = db.query(models.TRPanel).get(repeat.trpanel_id).name
             if tr_panel_name == 'hipstr_hg38':
                 tr_panel_name = 'ensemble_tr'
-        
-            print(tr_panel_name)
+
             rows.append({
                 "repeat_id": repeat.id,
                 "chr": repeat.chr,
@@ -353,11 +346,6 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
         coord_split = region_split[1].split('-')
         start = int(coord_split[0])
         end = int(coord_split[1])
-        #buf = int((end-start)*(GENEBUFFER))
-        #start = start-buf
-        #end = end+buf
-       
-        # When there is a region_query
         statement = select(models.Repeat, models.GenesRepeatsLink, models.CRCVariation
             ).select_from(models.Repeat
             ).filter(models.Repeat.chr == chrom, models.Repeat.start >= start, models.Repeat.end <= end, models.Repeat.l_effective <= 6
@@ -387,10 +375,10 @@ Retrieve all variations given a repeat id
     Returns
     List of Variations 
 """
-#@app.get("/variations/", response_model=List[schemas.CRCVariation], tags=["Variations"])
-#def show_variation(repeat_id: int, db: Session = Depends(get_db)):
-#    variations = db.query(models.CRCVariation).filter(models.CRCVariation.repeat_id == repeat_id).all()
-#    return variations
+@app.get("/variations/", response_model=List[schemas.CRCVariation], tags=["Variations"])
+def show_variation(repeat_id: int, db: Session = Depends(get_db)):
+   variations = db.query(models.CRCVariation).filter(models.CRCVariation.repeat_id == repeat_id).all()
+   return variations
 
 
 """ 
@@ -478,8 +466,4 @@ def get_crc_expr_repeatlen_corr(db: Session = Depends(get_db), limit = 7000):
     ).all()
 
     return [{**c.gene.__dict__, **c.repeat.__dict__, **c.__dict__} for c in correlations]
-
-@app.get("/test")
-def test_route():
-    return {"message": "Server is working"}
 

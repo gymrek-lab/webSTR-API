@@ -39,7 +39,7 @@ class Transcript(SQLModel, table=True):
     end: int = Field(nullable=False)
 
     # one to many Gene -> Transcripts
-    gene_id = Field(Integer, foreign_key ="genes.id")
+    gene_id: int = Field(Integer, foreign_key ="genes.id")
 
     gene: "Gene" = Relationship(back_populates="transcripts")
 
@@ -195,7 +195,6 @@ class AlleleSequence(SQLModel, table=True):
     frequency: float = Field(nullable=False)
     num_called: Optional[int] = Field(nullable=True) 
     sequence: str = Field(nullable=False) 
-
     # One to many, Repeat ->  AlleleSequence
     repeat_id: int = Field(foreign_key = "repeats.id")
     repeat: "Repeat" = Relationship(back_populates="allseq")   
