@@ -195,7 +195,6 @@ class AlleleSequence(SQLModel, table=True):
     frequency: float = Field(nullable=False)
     num_called: Optional[int] = Field(nullable=True) 
     sequence: str = Field(nullable=False) 
-
     # One to many, Repeat ->  AlleleSequence
     repeat_id: int = Field(foreign_key = "repeats.id")
     repeat: "Repeat" = Relationship(back_populates="allseq")   

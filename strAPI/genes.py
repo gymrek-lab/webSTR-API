@@ -1,6 +1,6 @@
 from . repeats.models import Gene, Transcript
 
-#GENEBUFFER = 0.1
+#genebuffer set in webstr codeto remove redundancy 
 
 def get_exons_by_transcript(db, cds_only, transcript_obj):
     exons = []
@@ -28,9 +28,7 @@ def get_gene_info(db, gene_names, ensembl_ids, region_query):
         coord_split = region_split[1].split('-')
         start = int(coord_split[0])
         end = int(coord_split[1])
-        #buf = int((end-start))
-        #start = start-buf
-        #end = end+buf
+
    
         genes = db.query(Gene).where(
             Gene.chr == chrom,
@@ -44,23 +42,15 @@ def get_genes_with_exons(db, genes):
 
     genes_exons = []
     for gene in iter(genes):
-        print(f"Processing gene: {gene.name}")
         transcripts = db.query(Transcript).filter_by(gene_id=gene.id).all()
-        print(f"Transcripts found: {len(transcripts)}")
 
         all_exons = []
         for transcript in transcripts:
-            print(f"Processing transcript: {transcript.ensembl_transcript}")
             exons_obj = get_exons_by_transcript(db, False, transcript)
-            print(f"Exons found: {len(exons_obj)}")
 
 
             exons = []
             for exon in iter(exons_obj):
-            
-                print(f"Exon: {exon.ensembl_exon}")
-
-
                 exons.append({
                     "ensembl_exon": exon.ensembl_exon,
                     "start":  exon.start,

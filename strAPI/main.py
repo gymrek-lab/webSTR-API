@@ -24,13 +24,11 @@ from fastapi.responses import StreamingResponse
 
 import sqlalchemy
 from sqlmodel import Session, select 
-from sqlalchemy import nullslast
+from sqlalchemy import case
+
 
 from .repeats import models, schemas
 from .repeats.database import get_db
-
-# this is not needed if using alembic
-#models.Base.metadata.create_all(bind=engine)
 
 description = """
 WebSTR-API: Database of Human genome-wide variation in Short Tandem Repeats (STRs) 
@@ -81,7 +79,6 @@ def add_examples(openapi_schema: dict, docs_dir):
             if len(parts) >= 2:
                 route = '/' + '/'.join(parts[:-1])
                 method = parts[-1].split('.')[0]
-                print(f'[{path_key}][{route}][{method}][{code_key}]')
 
                 if route in openapi_schema[path_key]:
                     if code_key not in openapi_schema[path_key][route][method]:
@@ -149,13 +146,13 @@ def show_genes(db: Session = Depends(get_db)):
     - Add features flag and return corresponding transcripts and exons
 """ 
 @app.get("/gene/", response_model=List[schemas.Gene], tags=["Genes"])
-def show_genes(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), region_query: str = Query(None)):
-    return gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
+def show_genes(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), reqion_query: str = Query(None)):
+    return gn.get_gene_info(db, gene_names, ensembl_ids, reqion_query)
     
 
 @app.get("/genefeatures/", response_model=List[schemas.GeneInfo], tags=["Genes"])
-def show_gene_info(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), region_query: str = Query(None)):
-        genes = gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
+def show_gene_info(db: Session = Depends(get_db), gene_names: List[str] = Query(None), ensembl_ids: List[str] = Query(None), reqion_query: str = Query(None)):
+        genes = gn.get_gene_info(db, gene_names, ensembl_ids, reqion_query)
         return gn.get_genes_with_exons(db, genes)
 
 
@@ -172,8 +169,8 @@ Retrieve allele frequencies for the given repeat id
 @app.get("/allfreqs/", response_model=List[schemas.AlleleFrequency], tags=["Repeats"])
 def show_allele_freqs(repeat_id: int, db: Session = Depends(get_db)):
     allfreqs = db.query(models.AlleleFrequency).filter(models.AlleleFrequency.repeat_id == repeat_id).all()
-    #if allfreqs == []:
-    #    return []
+    if allfreqs == []:
+       return []
     return allfreqs
 
 @app.get("/allseq/", response_model=List[schemas.AlleleSequence], tags=["Repeats"])
@@ -272,7 +269,6 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
                             strand=None,
                             name=None,
                             description=None)
-            print(len(r))
             if len(r) < 4:
                 crcvar_info = r[2]
             elif len(r) == 4:
@@ -286,8 +282,7 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
             tr_panel_name = db.query(models.TRPanel).get(repeat.trpanel_id).name
             if tr_panel_name == 'hipstr_hg38':
                 tr_panel_name = 'ensemble_tr'
-        
-            print(tr_panel_name)
+
             rows.append({
                 "repeat_id": repeat.id,
                 "chr": repeat.chr,
@@ -329,13 +324,20 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
         genes = gn.get_gene_info(db, gene_names, ensembl_ids, region_query)
         gene_obj_ids = [gene.id for gene in genes]
         
-        statement = select(models.Repeat, models.Gene, models.GenesRepeatsLink, models.CRCVariation     #SELECT genes, repeats, genes_repeats FROM ((genes_repeats
-            ).join(models.Gene).where(models.Gene.id == models.GenesRepeatsLink.gene_id  #INNER JOIN genes ON genes.id = genes_repeats.gene_id)
-            ).join(models.Repeat).where(models.Repeat.id == models.GenesRepeatsLink.repeat_id #INNER JOIN repeats on repeats.id = genes_repeats.repeat_id)
+    # When there is no region_query
+        statement = select(models.Repeat, models.Gene, models.GenesRepeatsLink, models.CRCVariation
+            ).join(models.Gene).where(models.Gene.id == models.GenesRepeatsLink.gene_id
+            ).join(models.Repeat).where(models.Repeat.id == models.GenesRepeatsLink.repeat_id
             ).filter(models.Gene.id.in_(gene_obj_ids)
-            ).filter(models.Repeat.l_effective <= 6 
-            ).join(models.CRCVariation, isouter=True 
-            ).order_by(nullslast(models.CRCVariation.frac_variable.desc())).order_by(models.CRCVariation.total_calls)
+            ).filter(models.Repeat.l_effective <= 6
+            ).join(models.CRCVariation, isouter=True
+            ).order_by(
+                case((models.CRCVariation.frac_variable.is_(None), 1), else_=0),
+                models.CRCVariation.frac_variable.desc(),
+                models.CRCVariation.total_calls
+            )
+
+
     
         repeats = db.exec(statement)
     else:
@@ -344,16 +346,16 @@ def show_repeats(gene_names: List[str] = Query(None), ensembl_ids: List[str] = Q
         coord_split = region_split[1].split('-')
         start = int(coord_split[0])
         end = int(coord_split[1])
-        #buf = int((end-start)*(GENEBUFFER))
-        #start = start-buf
-        #end = end+buf
-       
-        statement = select(models.Repeat, models.GenesRepeatsLink, models.CRCVariation    
+        statement = select(models.Repeat, models.GenesRepeatsLink, models.CRCVariation
             ).select_from(models.Repeat
             ).filter(models.Repeat.chr == chrom, models.Repeat.start >= start, models.Repeat.end <= end, models.Repeat.l_effective <= 6
             ).join(models.GenesRepeatsLink, isouter=True
             ).join(models.CRCVariation, isouter=True
-            ).order_by(nullslast(models.CRCVariation.frac_variable.desc())).order_by(models.CRCVariation.total_calls)
+            ).order_by(
+                case((models.CRCVariation.frac_variable.is_(None), 1), else_=0),
+                models.CRCVariation.frac_variable.desc(),
+                models.CRCVariation.total_calls
+    )
     
         
         repeats = db.exec(statement)
@@ -373,10 +375,10 @@ Retrieve all variations given a repeat id
     Returns
     List of Variations 
 """
-#@app.get("/variations/", response_model=List[schemas.CRCVariation], tags=["Variations"])
-#def show_variation(repeat_id: int, db: Session = Depends(get_db)):
-#    variations = db.query(models.CRCVariation).filter(models.CRCVariation.repeat_id == repeat_id).all()
-#    return variations
+@app.get("/variations/", response_model=List[schemas.CRCVariation], tags=["Variations"])
+def show_variation(repeat_id: int, db: Session = Depends(get_db)):
+   variations = db.query(models.CRCVariation).filter(models.CRCVariation.repeat_id == repeat_id).all()
+   return variations
 
 
 """ 
@@ -454,13 +456,14 @@ def get_sorted_exons(transcript: str, protein: bool = False, db: Session = Depen
     Returns
     List of correlations between genes and a specific repeat length in CRC patients
 """
-@app.get("/crc_expr_repeatlen_corr/", response_model=List[schemas.CRCExprRepeatLenCorr])
-def get_crc_expr_repeatlen_corr(db: Session = Depends(get_db), limit = 7000):
+# @app.get("/crc_expr_repeatlen_corr/", response_model=List[schemas.CRCExprRepeatLenCorr])
+# def get_crc_expr_repeatlen_corr(db: Session = Depends(get_db), limit = 7000):
 
-    correlations = db.query(models.CRCExprRepeatLenCorr).order_by(
-        sqlalchemy.func.abs(models.CRCExprRepeatLenCorr.coefficient).desc()
-    ).limit(limit).options(
-        joinedload(models.CRCExprRepeatLenCorr.gene), joinedload(models.CRCExprRepeatLenCorr.repeat)
-    ).all()
+#     correlations = db.query(models.CRCExprRepeatLenCorr).order_by(
+#         sqlalchemy.func.abs(models.CRCExprRepeatLenCorr.coefficient).desc()
+#     ).limit(limit).options(
+#         joinedload(models.CRCExprRepeatLenCorr.gene), joinedload(models.CRCExprRepeatLenCorr.repeat)
+#     ).all()
 
-    return [{**c.gene.__dict__, **c.repeat.__dict__, **c.__dict__} for c in correlations]
+#     return [{**c.gene.__dict__, **c.repeat.__dict__, **c.__dict__} for c in correlations]
+
